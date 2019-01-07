@@ -8,8 +8,13 @@ import inspect
 import numpy as np
 import numpy.linalg
 
-import galsim
+from astropy.table import Table
 
+import galsim
+from galsim.tensorflow import GenerativeGalaxyModel
+import tensorflow as tf
+model = GenerativeGalaxyModel('/home/francois/repo/deep_galaxy_models/modules/flow/1546410517/generator')
+cache = {}
 
 def sersic_second_moments(n,hlr,q,beta):
     """Calculate the second-moment tensor of a sheared Sersic radial profile.
@@ -140,7 +145,7 @@ class Galaxy(object):
     def __init__(self,identifier,redshift,ab_magnitude,ri_color,
         cosmic_shear_g1,cosmic_shear_g2,
         dx_arcsecs,dy_arcsecs,beta_radians,disk_flux,disk_hlr_arcsecs,disk_q,
-        bulge_flux,bulge_hlr_arcsecs,bulge_q,agn_flux):
+        bulge_flux,bulge_hlr_arcsecs,bulge_q,agn_flux, parametric=True):
         self.identifier = identifier
         self.redshift = redshift
         self.ab_magnitude = ab_magnitude
@@ -149,6 +154,7 @@ class Galaxy(object):
         self.dy_arcsecs = dy_arcsecs
         self.cosmic_shear_g1 = cosmic_shear_g1
         self.cosmic_shear_g2 = cosmic_shear_g2
+        self.parametric = parametric
         components = [ ]
         # Initialize second-moments tensor. Note that we can only add the tensors for the
         # n = 1,4 components, as we do below, since they have the same centroid.
@@ -156,19 +162,36 @@ class Galaxy(object):
         total_flux = disk_flux + bulge_flux + agn_flux
         self.disk_fraction = disk_flux/total_flux
         self.bulge_fraction = bulge_flux/total_flux
-        if disk_flux > 0:
-            disk = galsim.Exponential(flux = disk_flux, half_light_radius = disk_hlr_arcsecs).shear(q = disk_q, beta = beta_radians*galsim.radians)
-            components.append(disk)
-            self.second_moments += self.disk_fraction*sersic_second_moments(
-                n=1,hlr=disk_hlr_arcsecs,q=disk_q,beta=beta_radians)
 
-        if bulge_flux > 0:
-            bulge = galsim.DeVaucouleurs(
-                flux = bulge_flux, half_light_radius = bulge_hlr_arcsecs).shear(
-                q = bulge_q, beta = beta_radians*galsim.radians)
-            components.append(bulge)
-            self.second_moments += self.bulge_fraction*sersic_second_moments(
-                n=1,hlr=bulge_hlr_arcsecs,q=bulge_q,beta=beta_radians)
+        # if we have both disk and bulge, use the generative model
+        if (not parametric) (disk_flux > 0) & (bulge_flux > 0):
+            use_bulgefit = 1.0
+            cat = np.array([use_bulgefit, redshift, bulge_hlr_arcsecs, disk_hlr_arcsecs,
+                         bulge_q, disk_q, np.log10(bulge_flux), np.log10(disk_flux)])
+            cat = Table(cat.reshape((1, -1)), names=['use_bulgefit', 'zphot', 'bulge_hlr', 'disk_hlr',
+                                                     'bulge_q', 'disk_q', 'bulge_flux_log10', 'disk_flux_log10'])
+            if identifier in cache:
+                gal = cache[identifier]
+            else:
+                gal = model.sample(cat)
+                cache[identifier] = gal
+            gal = gal.withFlux(total_flux)
+
+            components.append(gal)
+        else:
+            if disk_flux > 0:
+                disk = galsim.Exponential(flux = disk_flux, half_light_radius = disk_hlr_arcsecs).shear(q = disk_q, beta = beta_radians*galsim.radians)
+                components.append(disk)
+                self.second_moments += self.disk_fraction*sersic_second_moments(
+                    n=1,hlr=disk_hlr_arcsecs,q=disk_q,beta=beta_radians)
+
+            if bulge_flux > 0:
+                bulge = galsim.DeVaucouleurs(
+                    flux = bulge_flux, half_light_radius = bulge_hlr_arcsecs).shear(
+                    q = bulge_q, beta = beta_radians*galsim.radians)
+                components.append(bulge)
+                self.second_moments += self.bulge_fraction*sersic_second_moments(
+                    n=1,hlr=bulge_hlr_arcsecs,q=bulge_q,beta=beta_radians)
         # GalSim does not currently provide a "delta-function" component to model the AGN
         # so we use a very narrow Gaussian. See this GalSim issue for details:
         # https://github.com/GalSim-developers/GalSim/issues/533
