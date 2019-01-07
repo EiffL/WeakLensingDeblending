@@ -11,9 +11,9 @@ import numpy.linalg
 from astropy.table import Table
 
 import galsim
-from galsim.tensorflow import GenerativeGalaxyModel
+from galsim_hub import GenerativeGalaxyModel
 import tensorflow as tf
-model = GenerativeGalaxyModel('/home/francois/repo/deep_galaxy_models/modules/flow/1546410517/generator')
+model = GenerativeGalaxyModel('hub:cosmos_parametric_fit')
 cache = {}
 
 def sersic_second_moments(n,hlr,q,beta):
