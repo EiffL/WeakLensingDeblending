@@ -164,7 +164,7 @@ class Galaxy(object):
         self.bulge_fraction = bulge_flux/total_flux
 
         # if we have both disk and bulge, use the generative model
-        if (not parametric) (disk_flux > 0) & (bulge_flux > 0):
+        if (not parametric) & (disk_flux > 0) & (bulge_flux > 0):
             use_bulgefit = 1.0
             cat = np.array([use_bulgefit, redshift, bulge_hlr_arcsecs, disk_hlr_arcsecs,
                          bulge_q, disk_q, np.log10(bulge_flux), np.log10(disk_flux)])
