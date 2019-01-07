@@ -256,7 +256,7 @@ class GalaxyBuilder(object):
         self.no_agn = no_agn
         self.verbose_model = verbose_model
 
-    def from_catalog(self,entry,dx_arcsecs,dy_arcsecs,filter_band):
+    def from_catalog(self,entry,dx_arcsecs,dy_arcsecs,filter_band,parametric=True):
         """Build a :class:Galaxy object from a catalog entry.
 
         Fluxes are distributed between the three possible components (disk,bulge,AGN) assuming
@@ -338,7 +338,7 @@ class GalaxyBuilder(object):
         return Galaxy(identifier,redshift,ab_magnitude,ri_color,
             self.survey.cosmic_shear_g1,self.survey.cosmic_shear_g2,
             dx_arcsecs,dy_arcsecs,beta_radians,disk_flux,disk_hlr_arcsecs,disk_q,
-            bulge_flux,bulge_hlr_arcsecs,bulge_q,agn_flux)
+            bulge_flux,bulge_hlr_arcsecs,bulge_q,agn_flux,parametric)
 
     @staticmethod
     def add_args(parser):
